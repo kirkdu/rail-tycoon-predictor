@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>铁路大亨 · 动态路线预测器 v1.1</title>
+<style>
+:root{--bg:#101114;--panel:#191b20;--panel2:#22252c;--line:#383c46;--text:#f2f3f5;--muted:#aeb3bd;--gold:#d9ae52;--green:#66c18c;--red:#e27b7b;--blue:#79a9e8}
+*{box-sizing:border-box} body{margin:0;background:linear-gradient(135deg,#0d0e11,#17191e);color:var(--text);font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif}
+.wrap{max-width:1200px;margin:auto;padding:22px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:18px}
+h1{font-size:24px;margin:0}.sub{color:var(--muted);font-size:13px;margin-top:5px}
+button,select,input{font:inherit} button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:9px;padding:9px 13px;cursor:pointer}
+button:hover{border-color:#666c78}.danger{border-color:#754545}.gold{background:#4a3920;border-color:#8d6d35}
+.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}.panel{background:rgba(25,27,32,.94);border:1px solid var(--line);border-radius:13px;padding:16px;margin-bottom:14px}
+.title{font-weight:700;margin-bottom:11px}.hint{padding:12px;border-radius:10px;background:#24272e;border-left:4px solid var(--gold);line-height:1.55}
+.row{display:flex;flex-wrap:wrap;gap:9px;align-items:center}.station button{min-width:110px;transition:.15s}.station button.selected{border:2px solid var(--green);background:#243c30;box-shadow:0 0 0 2px rgba(102,193,140,.12)}.station button.locked{opacity:.38;cursor:not-allowed}.station button:not(.locked):hover{transform:translateY(-1px)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}.stat{background:#20232a;border-radius:9px;padding:10px}.stat b{display:block;font-size:19px}.stat span{font-size:12px;color:var(--muted)}
+.remain{display:flex;gap:8px;margin-top:10px}.pill{padding:7px 10px;background:#20232a;border-radius:999px;font-size:13px}.pill b{color:var(--gold)}
+.pred{display:grid;gap:8px}.pitem{display:flex;justify-content:space-between;align-items:center;background:#20232a;border-radius:9px;padding:10px}.certain{border-left:4px solid var(--green)}.candidate{border-left:4px solid var(--gold)}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.card{background:#20232a;border:1px solid var(--line);border-radius:10px;padding:12px;min-height:145px}.card h3{margin:0 0 8px;font-size:15px}.tag{display:inline-block;font-size:11px;padding:3px 6px;border-radius:5px;background:#30343d;color:#d9dde5;margin-bottom:7px}.good{color:var(--green)}.bad{color:var(--red)}.neutral{color:#d8c17d}
+textarea,input,select{background:#121419;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;outline:none}textarea{width:100%;min-height:62px;resize:vertical}.field{display:grid;gap:5px;margin-bottom:10px}.field label{font-size:12px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{border-bottom:1px solid #30333b;padding:7px;text-align:right}th:first-child,td:first-child{text-align:left}
+details summary{cursor:pointer;color:#d8dce3}.log{max-height:280px;overflow:auto}.log div{padding:6px 0;border-bottom:1px solid #2b2e35;font-size:12px;color:#c5c9d1}
+.note{font-size:12px;color:var(--muted);line-height:1.6}.editbtn{padding:5px 8px;font-size:12px;margin-left:6px}.recordrow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid #30333b}.recordmain{flex:1}.actions{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:850px){.grid{grid-template-columns:1fr}.cards{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>铁路大亨 · 动态路线预测器 v1.1</h1><div class="sub">每局随机；只记录本局已知站点和提示，不继承上一局路线。</div></div>
+    <div class="actions"><button onclick="newGame()">新开一局</button><button onclick="exportState()">导出本局</button><button onclick="importState()">导入本局</button></div>
+  </div>
+
+  <div class="grid">
+    <main>
+      <section class="panel">
+        <div class="title">① 确认当前所在位置</div>
+        <div id="stepStatus" class="hint" style="margin-bottom:10px">本局刚开始，你现在位于<b>初始站</b>。初始站不属于食铺、商行、酒庄，也不消耗15站数量。请先输入你在初始站看到的未来3站提示，然后开始预测。</div>
+        <div class="note" style="margin-bottom:8px">每局开局固定为 <b>初始站</b>。这里不需要在食铺、商行、酒庄中选择；真正的第1站会在你“实际到达”后记录。</div>
+        <div class="field">
+          <label>当前所在位置</label>
+          <div class="row station" id="currentStationButtons">
+            <button class="selected" disabled>✓ 已选择：初始站</button>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>③ 实际到达下一站（验证预测后正式记录）</label>
+          <div class="row station" id="arriveButtons">
+            <button onclick="arrive('食铺')">实际到达：食铺</button>
+            <button onclick="arrive('商行')">实际到达：商行</button>
+            <button onclick="arrive('酒庄')">实际到达：酒庄</button>
+          </div>
+          <div id="arriveStatus" class="note" style="margin-top:7px"></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><b id="cur">—</b><span>当前站</span></div>
+          <div class="stat"><b id="idx">0</b><span>已经过站数（不含初始站）</span></div>
+          <div class="stat"><b id="hintCount">0</b><span>已录入提示</span></div>
+          <div class="stat"><b id="nextState">—</b><span>下一站状态</span></div>
+        </div>
+        <div class="remain">
+          <div class="pill">食铺 <b id="rFood">5</b></div>
+          <div class="pill">商行 <b id="rTrade">5</b></div>
+          <div class="pill">酒庄 <b id="rWine">5</b></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="title">② 输入“当前站看到的未来3站”提示</div>
+        <div class="row">
+          <select id="hint">
+            <option value="">选择提示…</option>
+            <option value="foodMost">未来3站：食铺数量最多</option>
+            <option value="tradeMost">未来3站：商行数量最多</option>
+            <option value="wineMost">未来3站：酒庄数量最多</option>
+            <option value="equal">未来3站：各站点数量相同</option>
+          </select>
+          <button class="gold" onclick="startPrediction()" id="startPredictionBtn">开始预测</button>
+        </div>
+        <div id="hintShow" class="hint" style="margin-top:10px">尚未录入提示。</div>
+      </section>
+
+      <section class="panel">
+        <div class="title">③ 看下一步路线预测</div>
+        <div id="prediction" class="pred"><div class="note">到达一个站并录入提示后，这里会根据所有历史记录重新求解。</div></div>
+        <div class="note" style="margin-top:10px">
+          “确定”=所有满足历史提示+已走站点+剩余数量约束的路线都相同；“候选”=仍有多个合法路线。不会把上一局路线带入本局。
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="title">④ 本局已经经过哪些站</div>
+        <div id="routeRecord" class="hint" style="margin-bottom:10px">本局还没有记录经过的站点。</div>
+        <div class="note">历史记录可以修改：修改后会立即按新的记录重新推理，不需要重开本局。</div>
+        <div id="log" class="log"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const TYPES=['食铺','商行','酒庄'];
+const state={arrived:[],hints:[],current:'初始站',_initialStation:'初始站',_log:[],_prediction:null,_busy:false};
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function save(){try{localStorage.setItem('railTycoonV11',JSON.stringify(state));}catch(e){}}
+function load(){try{const old=JSON.parse(localStorage.getItem('railTycoonV11')||'null');if(old&&Array.isArray(old.arrived)){Object.assign(state,old);state.current=state.arrived.length?state.arrived[state.arrived.length-1]:'初始站';state._initialStation='初始站';state._log=state._log||[];state._prediction=state._prediction||null;state._busy=false;}}catch(e){state._busy=false;}}
+function newGame(){
+  if(!confirm('确定清空本局记录并开始新局？'))return;
+  state.arrived=[];state.hints=[];state.current='初始站';state._initialStation='初始站';state._log=[];state._prediction=null;state._busy=false;
+  save();render();
+}
+function hintText(h){return ({foodMost:'未来3站：食铺数量最多',tradeMost:'未来3站：商行数量最多',wineMost:'未来3站：酒庄数量最多',equal:'未来3站：各站点数量相同'})[h]||h}
+function log(s){state._log=state._log||[];state._log.unshift(new Date().toLocaleTimeString()+' · '+s);if(state._log.length>80)state._log.pop();}
+function counts(){const r={食铺:5,商行:5,酒庄:5};for(const x of state.arrived)r[x]--;return r}
+function solveRoute(input){
+  const n=15, arrived=input.arrived||[], hints=input.hints||[];
+  const TYPES=['食铺','商行','酒庄'];
+  const counts0={食铺:5,商行:5,酒庄:5};
+  const candidates=Array.from({length:n},()=>new Set());
+  if(arrived.length>n || !validArrivedCounts(arrived)) return {candidates:candidates.map(s=>[...s]),solutionCount:0};
+  function checkWindow(h, seq){
+    if(!hints[h] || h+2>=n) return true;
+    const a=seq[h], b=seq[h+1], c=seq[h+2];
+    if(!a||!b||!c) return true;
+    const vals=[a,b,c], cnt={食铺:0,商行:0,酒庄:0};
+    vals.forEach(x=>cnt[x]++);
+    if(hints[h]==='equal') return cnt.食铺===1&&cnt.商行===1&&cnt.酒庄===1;
+    const target=hints[h]==='foodMost'?'食铺':hints[h]==='tradeMost'?'商行':'酒庄';
+    return cnt[target]>Math.max(...TYPES.filter(t=>t!==target).map(t=>cnt[t]));
+  }
+  function partialPossible(h, seq, pos){
+    if(!hints[h]) return true;
+    const idx=[h,h+1,h+2], vals=idx.map(i=>seq[i]).filter(Boolean);
+    if(!vals.length) return true;
+    const cnt={食铺:0,商行:0,酒庄:0}; vals.forEach(x=>cnt[x]++);
+    const unknown=3-vals.length;
+    if(hints[h]==='equal') return Math.max(cnt.食铺,cnt.商行,cnt.酒庄)<=1;
+    const target=hints[h]==='foodMost'?'食铺':hints[h]==='tradeMost'?'商行':'酒庄';
+    const otherMax=Math.max(...TYPES.filter(t=>t!==target).map(t=>cnt[t]));
+    return cnt[target]+unknown>otherMax;
+  }
+  const memo=new Map(), solutionMemo=new Map(), seq=Array(n).fill(null);
+  for(let i=0;i<arrived.length;i++) seq[i]=arrived[i];
+  const rem={...counts0};
+  for(const x of arrived) rem[x]--;
+  function key(pos,r){return pos+'|'+r.食铺+','+r.商行+','+r.酒庄+'|'+seq.slice(Math.max(0,pos-3),pos).join(',');}
+  function feasible(pos,r){
+    const k=key(pos,r); if(memo.has(k)) return memo.get(k);
+    if(pos===n){
+      for(let h=0;h<n;h++) if(hints[h] && h+2<n && !checkWindow(h,seq)){memo.set(k,false);return false;}
+      memo.set(k,true);return true;
+    }
+    const choices=pos<arrived.length?[arrived[pos]]:TYPES;
+    for(const t of choices){
+      if(r[t]<=0) continue;
+      seq[pos]=t;r[t]--;
+      let ok=true;
+      if(pos>=2 && hints[pos-2] && !checkWindow(pos-2,seq)) ok=false;
+      if(ok){
+        for(let h=Math.max(0,pos-1);h<=Math.min(pos,n-3);h++){
+          if(hints[h] && !partialPossible(h,seq,pos)){ok=false;break;}
+        }
+      }
+      if(ok && feasible(pos+1,r)){r[t]++;seq[pos]=null;memo.set(k,true);return true;}
+      r[t]++;seq[pos]=null;
+    }
+    memo.set(k,false);return false;
+  }
+  if(!feasible(arrived.length,rem)) return {candidates:candidates.map(s=>[...s]),solutionCount:0};
+  function countFrom(pos,r){
+    const k=key(pos,r); if(solutionMemo.has(k)) return solutionMemo.get(k);
+    if(pos===n) return 1;
+    let total=0;
+    const choices=pos<arrived.length?[arrived[pos]]:TYPES;
+    for(const t of choices){
+      if(r[t]<=0) continue;
+      seq[pos]=t;r[t]--;
+      let ok=true;
+      if(pos>=2 && hints[pos-2] && !checkWindow(pos-2,seq)) ok=false;
+      if(ok){for(let h=Math.max(0,pos-1);h<=Math.min(pos,n-3);h++){if(hints[h]&&!partialPossible(h,seq,pos)){ok=false;break;}}}
+      if(ok) total=Math.min(1000000000,total+countFrom(pos+1,r));
+      r[t]++;seq[pos]=null;
+    }
+    solutionMemo.set(k,total);return total;
+  }
+  const solutionCount=countFrom(arrived.length,rem);
+  for(let pos=0;pos<n;pos++){
+    if(pos<arrived.length){candidates[pos].add(arrived[pos]);continue;}
+    for(const t of TYPES){
+      if(rem[t]<=0) continue;
+      seq[pos]=t;rem[t]--;
+      let ok=true;
+      if(pos>=2 && hints[pos-2] && !checkWindow(pos-2,seq)) ok=false;
+      if(ok){for(let h=Math.max(0,pos-1);h<=Math.min(pos,n-3);h++){if(hints[h]&&!partialPossible(h,seq,pos)){ok=false;break;}}}
+      if(ok && feasible(pos+1,rem)) candidates[pos].add(t);
+      rem[t]++;seq[pos]=null;
+    }
+  }
+  return {candidates:candidates.map(s=>[...s]),solutionCount};
+}
+function startPrediction(){
+  if(state._busy)return;
+  const select=document.getElementById('hint'),h=select.value;
+  if(!h){alert('请先选择你在当前站看到的“未来3站”提示。');return;}
+  const i=state.arrived.length;
+  state.hints[i]=h;
+  log((i===0?'初始站':'第'+i+'站')+'录入提示：'+hintText(h));
+  select.value='';save();runPrediction();
+}
+function nextVals(){const i=state.arrived.length;if(i>=15||!state._prediction)return [];return state._prediction.candidates[i]||[];}
+function arrive(t){
+  const i=state.arrived.length;
+  if(state._busy){alert('正在预测路线，请等预测完成后再记录实际到达。');return;}
+  if(!state.hints[i]||!state._prediction){alert((i===0?'初始站':'第'+i+'站')+'的预测还没有开始。\n\n正确顺序：选择当前站未来3站提示 → 点击“开始预测” → 再记录实际到达。');return;}
+  if(i>=15){alert('本局15站已经记录完毕。');return;}
+  const predicted=nextVals();
+  if(predicted.length && !predicted.includes(t)){
+    if(!confirm('当前预测为：'+predicted.join(' / ')+'，但你实际到达的是：'+t+'。\n\n确定后以实际结果为准，并重新预测后续路线？'))return;
+    log('第'+(i+1)+'站预测被实际结果修正：预测 '+predicted.join(' / ')+' → 实际 '+t);
+  }
+  state.arrived.push(t);state.current=t;state._prediction=null;
+  log('实际到达并确认：第'+(i+1)+'站 · '+t);
+  save();render();
+}
+function validArrivedCounts(arr){
+  const r={食铺:5,商行:5,酒庄:5};
+  for(const x of arr){if(!r.hasOwnProperty(x))return false;if(--r[x]<0)return false;}
+  return true;
+}
+function recomputeAfterEdit(){
+  state.current=state.arrived.length?state.arrived[state.arrived.length-1]:'初始站';
+  state._prediction=null;state._busy=false;save();render();
+  const i=state.arrived.length;
+  if(state.hints[i])runPrediction();
+}
+function runPrediction(){
+  if(state._busy)return;
+  const i=state.arrived.length,h=state.hints[i];
+  if(!h)return;
+  state._prediction=null;state._busy=true;save();render();
+  setTimeout(()=>{try{state._prediction=solveRoute({arrived:state.arrived,hints:state.hints});state._busy=false;save();render();}catch(e){state._prediction=null;state._busy=false;save();render();alert('预测程序出错：'+(e.message||e));}},40);
+}
+function editHint(index){
+  const old=state.hints[index];
+  const labels=['食铺数量最多','商行数量最多','酒庄数量最多','各站点数量相同'];
+  const oldLabel=hintText(old).replace('未来3站：','');
+  const ans=prompt('修改第'+(index===0?'初始站':'第'+index+'站')+'看到的未来3站提示。\n\n输入序号：\n1. 食铺数量最多\n2. 商行数量最多\n3. 酒庄数量最多\n4. 各站点数量相同\n\n当前：'+oldLabel, labels.indexOf(old)+1);
+  if(ans===null)return;
+  const map={'1':'foodMost','2':'tradeMost','3':'wineMost','4':'equal'};
+  if(!map[ans]){alert('请输入 1、2、3 或 4。');return;}
+  state.hints[index]=map[ans];
+  log('修改了'+(index===0?'初始站':'第'+index+'站')+'提示：'+hintText(map[ans]));
+  state._prediction=null;save();render();
+  if(index===state.arrived.length)runPrediction();
+  else if(state.hints[state.arrived.length])runPrediction();
+}
+function editArrived(index){
+  const old=state.arrived[index];
+  const ans=prompt('修改第'+(index+1)+'站实际到达。\n\n输入序号：\n1. 食铺\n2. 商行\n3. 酒庄\n\n当前：'+old, TYPES.indexOf(old)+1);
+  if(ans===null)return;
+  const map={'1':'食铺','2':'商行','3':'酒庄'};
+  if(!map[ans]){alert('请输入 1、2 或 3。');return;}
+  const copy=state.arrived.slice();copy[index]=map[ans];
+  if(!validArrivedCounts(copy)){alert('修改后会导致本局某种站点超过5次，不能保存。');return;}
+  state.arrived=copy;
+  log('修改第'+(index+1)+'站实际到达：'+old+' → '+map[ans]);
+  recomputeAfterEdit();
+}
+function exportState(){try{navigator.clipboard?.writeText(JSON.stringify(state,null,2));}catch(e){}alert('本局状态已复制到剪贴板（如浏览器允许）。');}
+function importState(){const s=prompt('粘贴此前导出的JSON：');if(!s)return;try{Object.assign(state,JSON.parse(s));state.current=state.arrived.length?state.arrived[state.arrived.length-1]:'初始站';state._initialStation='初始站';state._log=state._log||[];state._prediction=null;state._busy=false;save();render();}catch(e){alert('JSON格式不正确');}}
+function renderPrediction(){
+  const box=document.getElementById('prediction'),i=state.arrived.length;
+  if(state._busy){box.innerHTML='<div class="note">正在根据本局所有提示计算路线，请稍候…</div>';return;}
+  if(!state.hints[i]||!state._prediction){box.innerHTML='<div class="note">请先选择当前站的未来3站提示，然后点击“开始预测”。</div>';return;}
+  const r=state._prediction,sols=r.solutionCount;
+  if(!sols){box.innerHTML='<div class="pitem candidate"><span>⚠ 当前记录出现矛盾</span><span>请检查历史提示、实际到达或提示是否录入正确</span></div>';return;}
+  let html='';
+  for(let k=0;k<Math.min(5,15-i);k++){
+    const vals=r.candidates[i+k]||[];
+    const cls=vals.length===1?'certain':'candidate',label=vals.length===1?'确定':'候选';
+    html+=`<div class="pitem ${cls}"><span>第${i+k+1}站</span><b>${label}：${vals.join(' / ')}</b></div>`;
+  }
+  html+=`<div class="note">当前共有 ${sols} 条符合目前所有约束的路线。实际到站后会继续收敛。</div>`;
+  box.innerHTML=html;
+}
+function renderRouteRecord(){
+  const box=document.getElementById('routeRecord');
+  let html='<div class="recordrow"><div class="recordmain"><b>初始站</b></div>';
+  if(state.hints[0])html+='<button class="editbtn" onclick="editHint(0)">修改提示</button>';
+  html+='</div>';
+  if(!state.arrived.length){html+='<div class="note" style="margin-top:7px">本局还没有记录实际到达站点。</div>';}
+  else state.arrived.forEach((t,i)=>{
+    html+=`<div class="recordrow"><div class="recordmain"><b>第${i+1}站</b>：${esc(t)}${state.hints[i+1]?`<br><span class="note">未来3站：${esc(hintText(state.hints[i+1]).replace('未来3站：',''))}</span>`:''}</div><div><button class="editbtn" onclick="editArrived(${i})">修改到达</button>${state.hints[i+1]?`<button class="editbtn" onclick="editHint(${i+1})">修改提示</button>`:''}</div></div>`;
+  });
+  box.innerHTML=html;
+}
+function render(){
+  const r=counts(),i=state.arrived.length,ready=!!state._prediction;
+  document.getElementById('stepStatus').innerHTML=i===0
+    ? '<b>当前：初始站 ✓</b><br><span class="note">初始站是固定起点，不属于食铺、商行、酒庄，也不消耗数量。请选择当前看到的未来3站提示，然后点击“开始预测”。</span>'
+    : '<b>当前：第'+i+'站 · '+esc(state.current)+' ✓</b><br><span class="note">本站已经实际到达。请选择本站看到的未来3站提示，然后点击“开始预测”，再记录下一站实际到达。</span>';
+  document.getElementById('cur').textContent=state.current||'初始站';
+  document.getElementById('idx').textContent=i;
+  document.getElementById('rFood').textContent=r.食铺;document.getElementById('rTrade').textContent=r.商行;document.getElementById('rWine').textContent=r.酒庄;
+  const hi=state.hints[i];document.getElementById('hintShow').textContent=hi?('✓ 已录入：'+hintText(hi)):'当前站尚未录入提示。';
+  document.getElementById('hintCount').textContent=state.hints.filter(Boolean).length;
+  const btn=document.getElementById('startPredictionBtn');btn.disabled=state._busy;btn.textContent=state._busy?'正在预测…':'开始预测';btn.classList.toggle('gold',!state._busy);
+  document.querySelectorAll('#arriveButtons button').forEach(b=>{b.disabled=state._busy||!ready||i>=15;b.classList.toggle('locked',b.disabled);});
+  const arriveStatus=document.getElementById('arriveStatus');
+  if(i>=15)arriveStatus.innerHTML='✓ 本局15站已经全部记录。';
+  else if(state._busy)arriveStatus.innerHTML='⏳ 正在计算路线，完成后即可记录实际到达。';
+  else if(!ready)arriveStatus.innerHTML='⏳ 先选择当前站的未来3站提示并点击“开始预测”。';
+  else arriveStatus.innerHTML='✓ 预测已完成　|　现在可以记录下一站实际到达。';
+  const nv=nextVals();document.getElementById('nextState').textContent=nv.length===1?nv[0]:(nv.length?nv.join(' / '):'—');
+  renderPrediction();renderRouteRecord();
+  document.getElementById('log').innerHTML=(state._log||[]).map(x=>`<div>${esc(x)}</div>`).join('');
+}
+load();render();
+</script>
+</body></html>
