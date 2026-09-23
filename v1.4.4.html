@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>铁路大亨 · 动态路线预测器 v1.4.4</title>
+<style>
+:root{--bg:#101114;--panel:#191b20;--panel2:#22252c;--line:#383c46;--text:#f2f3f5;--muted:#aeb3bd;--gold:#d9ae52;--green:#66c18c;--red:#e27b7b}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#0d0e11,#17191e);color:var(--text);font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif}.wrap{max-width:1100px;margin:auto;padding:18px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}h1{font-size:23px;margin:0}.sub,.note{color:var(--muted);font-size:12px;line-height:1.6}.actions,.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.panel{background:rgba(25,27,32,.96);border:1px solid var(--line);border-radius:13px;padding:15px;margin-bottom:12px}.title{font-weight:700;margin-bottom:10px}button,input,select{font:inherit}button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:9px;padding:8px 12px;cursor:pointer}button:hover{border-color:#707680}button:disabled{opacity:.55;cursor:wait}.gold{background:#4a3920;border-color:#8d6d35}
+.route{display:flex;flex-direction:column;gap:10px;padding:5px 2px 4px;overflow:visible}.routeRow{display:flex;align-items:center;gap:7px;min-width:0}.routeRow.reverse{flex-direction:row-reverse}.routeRow .node{flex:1;min-width:0}.routeRow .arrow{flex:0 0 18px}.routeTurn{height:12px;display:flex;align-items:center;justify-content:flex-end;padding-right:7.5%}.routeTurn.reverse{justify-content:flex-start;padding-left:7.5%;padding-right:0}.turnArrow{font-size:18px;color:#707680;line-height:1}.node{position:relative;background:#20232a;border:1px solid var(--line);border-radius:10px;padding:9px 7px;text-align:center;min-height:58px;display:flex;flex-direction:column;justify-content:center;transition:.18s}.node .num{font-size:11px;color:var(--muted)}.node .name{font-weight:700;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.node.done{border-color:var(--green);background:linear-gradient(180deg,#202b27,#20232a)}.node.done .num{color:#7ed5a0}.node.now{border-color:var(--gold);box-shadow:0 0 0 2px rgba(217,174,82,.22),0 0 18px rgba(217,174,82,.10);background:linear-gradient(180deg,#30291d,#20232a);transform:translateY(-1px)}.node.now:after{content:'你在这里';position:absolute;left:50%;transform:translateX(-50%);top:-9px;background:var(--gold);color:#18140d;font-size:10px;font-weight:700;border-radius:999px;padding:2px 7px;white-space:nowrap}.node.future{opacity:.72}.node.predicted{border-color:var(--gold);background:linear-gradient(180deg,#29251d,#20232a);opacity:1}.node.predicted .num{color:#d9ae52}.node.predicted .name{color:#f0d48f}.arrow{display:flex;align-items:center;justify-content:center;color:#666;font-size:16px}.routeLegend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid #2e3138}.legend{font-size:11px;color:var(--muted)}.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;border:1px solid var(--line);vertical-align:-1px}.legend .lgNow{background:var(--gold);border-color:var(--gold)}.legend .lgDone{background:var(--green);border-color:var(--green)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.hintbox{padding:11px;border-radius:9px;background:#24272e;border-left:4px solid var(--gold)}.counts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.stat{background:#20232a;border-radius:9px;padding:9px}.stat b{display:block;font-size:18px}.stat span{font-size:11px;color:var(--muted)}.remain{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.pill{background:#20232a;padding:6px 9px;border-radius:999px;font-size:12px}.pill b{color:var(--gold)}input,select{background:#121419;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px}.pred{display:grid;gap:7px}.pitem{display:flex;justify-content:space-between;gap:12px;background:#20232a;border-radius:8px;padding:9px}.certain{border-left:4px solid var(--green)}.candidate{border-left:4px solid var(--gold)}.small{font-size:11px;color:var(--muted)}.record{max-height:250px;overflow:auto}.recordrow{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid #30333b}.edit{padding:4px 7px;font-size:11px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.counts{grid-template-columns:repeat(2,1fr)}.top{align-items:flex-start;flex-direction:column}.route{gap:6px}.routeRow{gap:4px}.routeRow .arrow{flex-basis:10px;font-size:12px}.node{min-height:52px;padding:7px 3px}.node .num{font-size:9px}.node .name{font-size:12px}.node.now:after{font-size:9px;padding:2px 5px}.routeTurn{height:10px}}
+@media(max-width:460px){.routeRow{gap:2px}.routeRow .arrow{flex-basis:7px}.node{min-height:48px}.node .name{font-size:11px}.node.now:after{content:'当前位置';top:-8px}}
+</style>
+</head>
+<body><div class="wrap">
+<div class="top"><div><h1>铁路大亨 · 动态路线预测器 v1.4.4</h1><div class="sub">完整路线总览：三排固定显示；历史提示持续参与约束，预测会随实际到达自动更新。</div></div><div class="actions"><button onclick="newGame()">新开一局</button><button onclick="exportState()">导出本局</button><button onclick="importState()">导入本局</button></div></div>
+<section class="panel"><div class="title">本局完整路线</div><div id="route" class="route"></div><div class="routeLegend"><span class="legend"><i class="lgNow"></i>当前位置</span><span class="legend"><i class="lgDone"></i>已到达</span><span class="legend">金色：根据提示唯一锁定</span><span class="legend">灰色：尚未确定</span></div><div id="routeHint" class="note" style="margin-top:6px">初始站 → 第1站 → 第2站 → … → 第15站</div></section>
+<section class="panel"><div class="title">① 本局15站构成</div><div class="row"><label>食铺 <input id="f" type="number" min="0" max="15" value="5"></label><label>商行 <input id="t" type="number" min="0" max="15" value="5"></label><label>酒庄 <input id="w" type="number" min="0" max="15" value="5"></label><button class="gold" onclick="applyCounts()">应用本局数量</button><span id="totalMsg" class="note"></span></div></section>
+<section class="panel"><div class="title">② 当前位置</div><div id="status" class="hintbox"></div><div class="counts" style="margin-top:9px"><div class="stat"><b id="cur">初始站</b><span>当前所在位置</span></div><div class="stat"><b id="idx">0 / 15</b><span>已到达正式站</span></div><div class="stat"><b id="next">—</b><span>下一站预测</span></div><div class="stat"><b id="hintCount">0</b><span>已录入提示</span></div></div><div class="remain"><span class="pill">食铺 <b id="rf">5</b></span><span class="pill">商行 <b id="rt">5</b></span><span class="pill">酒庄 <b id="rw">5</b></span><span class="pill">总剩余 <b id="rr">15</b></span></div></section>
+<div class="grid"><section class="panel"><div class="title">③ 当前站看到的未来3站提示</div><div class="row"><select id="hint"><option value="">选择提示…</option><option value="foodMost">食铺数量最多</option><option value="tradeMost">商行数量最多</option><option value="wineMost">酒庄数量最多</option><option value="equal">三类数量相同</option></select><button id="predictBtn" class="gold" onclick="predict()">开始预测</button></div><div id="hintShow" class="hintbox" style="margin-top:9px">尚未录入当前站提示。</div></section><section class="panel"><div class="title">④ 实际到达下一站</div><div class="row"><button onclick="arrive('食铺')">食铺</button><button onclick="arrive('商行')">商行</button><button onclick="arrive('酒庄')">酒庄</button></div><div id="arriveMsg" class="note" style="margin-top:9px">先录入当前站提示并完成预测。</div></section></div>
+<section class="panel"><div class="title">⑤ 下一站及后续预测</div><div id="prediction" class="pred"><div class="note">输入提示后开始预测。</div></div></section>
+<section class="panel"><div class="title">⑥ 已确认路线（可修改）</div><div id="records" class="record"></div></section>
+</div>
+<script>
+const TYPES=['食铺','商行','酒庄'];
+const STORE='railTycoonV144';
+const S={totals:{食铺:5,商行:5,酒庄:5},arrived:[],hints:[],current:'初始站',prediction:null};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function save(){localStorage.setItem(STORE,JSON.stringify(S))}
+function load(){try{const raw=localStorage.getItem(STORE)||localStorage.getItem('railTycoonV143')||localStorage.getItem('railTycoonV14')||localStorage.getItem('railTycoonV13');if(!raw)return;const x=JSON.parse(raw);Object.assign(S,x);S.totals={食铺:5,商行:5,酒庄:5,...(x.totals||{})};S.current=S.arrived.length?S.arrived[S.arrived.length-1]:'初始站';S.prediction=null}catch(e){console.error(e)}}
+function remaining(){const r={...S.totals};S.arrived.forEach(x=>r[x]--);return r}
+function valid(a=S.arrived){const r={...S.totals};for(const x of a){if(!r[x]||--r[x]<0)return false}return true}
+function htext(h){return ({foodMost:'未来3站：食铺数量最多',tradeMost:'未来3站：商行数量最多',wineMost:'未来3站：酒庄数量最多',equal:'未来3站：三类数量相同'})[h]||''}
+function newGame(){if(!confirm('确定开始新一局？当前路线将清空。'))return;S.arrived=[];S.hints=[];S.current='初始站';S.prediction=null;save();render()}
+function applyCounts(){const f=+$('f').value,t=+$('t').value,w=+$('w').value;if(![f,t,w].every(Number.isInteger)||f<0||t<0||w<0||f+t+w!==15){alert('三类数量必须是非负整数，并且合计15。');return}if(!valid()){alert('当前已确认站点与新数量不匹配，请检查。');return}S.totals={食铺:f,商行:t,酒庄:w};recompute();save();render()}
+function hintOK(h,a,b,c){const hint=S.hints[h];if(!hint)return true;const v=[a,b,c];if(v.some(x=>!x))return true;const cnt={食铺:0,商行:0,酒庄:0};v.forEach(x=>cnt[x]++);if(hint==='equal')return cnt.食铺===1&&cnt.商行===1&&cnt.酒庄===1;const target=hint==='foodMost'?'食铺':hint==='tradeMost'?'商行':'酒庄';return cnt[target]>Math.max(...TYPES.filter(x=>x!==target).map(x=>cnt[x]))}
+function solve(){
+ const start=S.arrived.length,rem={...S.totals};S.arrived.forEach(x=>rem[x]--);
+ const cap=200001,memo=new Map();
+ function key(p,r,a,b){return p+'|'+r.食铺+','+r.商行+','+r.酒庄+'|'+(a||'')+','+(b||'')}
+ function ways(p,r,a,b){
+  if(p===15)return 1;
+  const k=key(p,r,a,b);if(memo.has(k))return memo.get(k);
+  let total=0;
+  for(const x of TYPES){
+   if(r[x]<=0)continue;
+   if(p>=2&&!hintOK(p-2,a,b,x))continue;
+   r[x]--;total=Math.min(cap,total+ways(p+1,r,b,x));r[x]++;
+   if(total>=cap)break;
+  }
+  memo.set(k,total);return total;
+ }
+ const l2=start>=2?S.arrived[start-2]:null,l1=start>=1?S.arrived[start-1]:null;
+ const solutions=ways(start,{...rem},l2,l1),cand=Array.from({length:15},()=>new Set());
+ if(!solutions)return {cand,solutions:0};
+ for(let i=0;i<start;i++)cand[i].add(S.arrived[i]);
+ const maxP=Math.min(14,start+2);
+ for(let target=start;target<=maxP;target++){
+  const out=cand[target];
+  function walk(p,r,a,b){
+   if(p===target){
+    for(const x of TYPES){if(r[x]<=0)continue;if(p>=2&&!hintOK(p-2,a,b,x))continue;r[x]--;const n=ways(p+1,r,b,x);r[x]++;if(n>0)out.add(x)}
+    return;
+   }
+   const forced=p<start?[S.arrived[p]]:TYPES;
+   for(const x of forced){if(r[x]<=0)continue;if(p>=2&&!hintOK(p-2,a,b,x))continue;r[x]--;walk(p+1,r,b,x);r[x]++}
+  }
+  walk(start,{...rem},l2,l1);
+ }
+ return {cand,solutions};
+}
+function recompute(){if(!S.hints.some(Boolean)){S.prediction=null;return}const result=solve();S.prediction=result.solutions?result:null}
+function predict(){const i=S.arrived.length,h=$('hint').value;if(!h){alert('请选择当前站看到的提示。');return}const btn=$('predictBtn');btn.disabled=true;btn.textContent='计算中…';setTimeout(()=>{try{const old=S.hints[i];S.hints[i]=h;const result=solve();if(!result.solutions){S.hints[i]=old;S.prediction=null;alert('当前已输入信息与提示无法同时成立，请检查本局数量、已到达站点或历史提示。');return}S.prediction=result;save();render()}catch(e){console.error(e);alert('预测程序发生异常，请刷新页面后重试。')}finally{btn.disabled=false;btn.textContent='开始预测'}},0)}
+function arrive(x){const i=S.arrived.length;if(i>=15){alert('15站已经全部完成。');return}const r=remaining();if(r[x]<=0){alert('本局该类型已经没有剩余数量。');return}if(S.prediction){const c=S.prediction.cand[i]||new Set();if(c.size&&!c.has(x)&&!confirm('当前预测不包含 '+x+'，确定仍以实际到达结果记录吗？'))return}S.arrived.push(x);S.current=x;recompute();save();render()}
+function edit(i){const old=S.arrived[i],x=prompt('修改第'+(i+1)+'站：1=食铺 2=商行 3=酒庄',String(TYPES.indexOf(old)+1));if(!x||!['1','2','3'].includes(x))return;const a=S.arrived.slice();a[i]=TYPES[+x-1];const r={...S.totals};for(const y of a){if(--r[y]<0){alert('修改后超过本局数量限制。');return}}S.arrived=a;S.current=S.arrived.at(-1)||'初始站';recompute();save();render()}
+function editHint(i){const x=prompt('修改提示：1=食铺最多 2=商行最多 3=酒庄最多 4=三类相同',String(['foodMost','tradeMost','wineMost','equal'].indexOf(S.hints[i])+1));const m=['foodMost','tradeMost','wineMost','equal'];if(x&&m[+x-1]){S.hints[i]=m[+x-1];recompute();save();render()}}
+function exportState(){navigator.clipboard?.writeText(JSON.stringify(S));alert('本局数据已复制。')}
+function importState(){const x=prompt('粘贴导出的JSON');if(!x)return;try{Object.assign(S,JSON.parse(x));S.totals={食铺:5,商行:5,酒庄:5,...(S.totals||{})};S.current=S.arrived.length?S.arrived.at(-1):'初始站';recompute();save();render()}catch(e){alert('数据格式不正确。')}}
+function predictedName(i){const c=S.prediction?.cand?.[i];return c&&c.size===1?[...c][0]:null}
+function nodeHTML(i){const actual=i>0&&i<=S.arrived.length?S.arrived[i-1]:null;const locked=!actual?predictedName(i-1):null;const name=i===0?'初始站':(actual||locked||'？？');const cls=i===S.arrived.length?'now':actual?'done':locked?'predicted':'future';return `<div class="node ${cls}"><div class="num">${i===0?'起点':'第'+i+'站'}</div><div class="name">${esc(name)}</div></div>`}
+function rowHTML(indices,reverse){let h=`<div class="routeRow ${reverse?'reverse':''}">`;indices.forEach((i,k)=>{if(k)h+='<div class="arrow">'+(reverse?'←':'→')+'</div>';h+=nodeHTML(i)});return h+'</div>'}
+function renderRoute(){const groups=[[0,1,2,3,4,5],[6,7,8,9,10,11],[12,13,14,15]];let h='';groups.forEach((g,i)=>{h+=rowHTML(g,i===1);if(i<groups.length-1)h+=`<div class="routeTurn ${i===1?'reverse':''}"><span class="turnArrow">${i===0?'↘':'↙'}</span></div>`});$('route').innerHTML=h}
+function render(){const r=remaining(),i=S.arrived.length;$('f').value=S.totals.食铺;$('t').value=S.totals.商行;$('w').value=S.totals.酒庄;$('totalMsg').textContent='合计 '+Object.values(S.totals).reduce((a,b)=>a+b,0)+' / 15';$('cur').textContent=S.current;$('idx').textContent=i+' / 15';$('hintCount').textContent=S.hints.filter(Boolean).length;$('rf').textContent=Math.max(0,r.食铺);$('rt').textContent=Math.max(0,r.商行);$('rw').textContent=Math.max(0,r.酒庄);$('rr').textContent=Math.max(0,Object.values(r).reduce((a,b)=>a+b,0));$('status').innerHTML=i===0?'<b>你现在在：初始站</b><br>下一步：输入初始站看到的未来3站提示。':'<b>你现在在：第'+i+'站 · '+esc(S.current)+'</b><br>历史提示仍然生效；下面输入本站提示可进一步收紧路线。';$('hintShow').textContent=S.hints[i]?'✓ '+htext(S.hints[i]):'尚未录入当前站提示。';const c=S.prediction?.cand?.[i]||new Set();$('next').textContent=c.size===1?[...c][0]:(c.size?[...c].join(' / '):'—');$('arriveMsg').textContent=i>=15?'本局15站已完成。':S.prediction?'历史预测已应用：现在可以点击实际到达站。':'先录入当前站提示并预测。';
+ if(!S.prediction){$('prediction').innerHTML='<div class="note">输入当前站提示后开始预测。</div>'}else{$('prediction').innerHTML=Array.from({length:Math.min(3,15-i)},(_,k)=>{const p=i+k,v=S.prediction.cand[p]||new Set(),a=[...v];return `<div class="pitem ${a.length===1?'certain':'candidate'}"><span>第${p+1}站</span><b>${a.length===1?'已锁定：':a.length?'候选：':'无解'}${a.join(' / ')}</b></div>`}).join('')+`<div class="note">当前符合全部历史约束的路线数量：${S.prediction.solutions}${S.prediction.solutions>200000?'+':''}</div>`}
+ let rec='<div class="recordrow"><span><b>初始站</b>'+(S.hints[0]?' · '+esc(htext(S.hints[0])):'')+'</span>'+(S.hints[0]?'<button class="edit" onclick="editHint(0)">改提示</button>':'')+'</div>';S.arrived.forEach((x,j)=>{rec+=`<div class="recordrow"><span><b>第${j+1}站</b> · ${esc(x)}${S.hints[j+1]?' · '+esc(htext(S.hints[j+1])):''}</span><span><button class="edit" onclick="edit(${j})">改到达</button>${S.hints[j+1]?'<button class="edit" onclick="editHint('+(j+1)+')">改提示</button>':''}</span></div>`});$('records').innerHTML=rec;renderRoute()}
+load();render();
+</script></body></html>
