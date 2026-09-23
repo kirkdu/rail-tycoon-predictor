@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>铁路大亨 · 动态路线预测器 v1.4.1</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101114}
+iframe{display:block;width:100%;height:100%;border:0}
+</style>
+</head>
+<body>
+<iframe id="app" src="v1.4.html" title="铁路大亨动态路线预测器"></iframe>
+<script>
+const frame=document.getElementById('app');
+frame.addEventListener('load',()=>{
+  const doc=frame.contentDocument;
+  const style=doc.createElement('style');
+  style.textContent=`
+    /* 蛇形路线：第二排从第6站向第11站反向行驶，箭头也必须反向 */
+    .routeRow.reverse .arrow{transform:scaleX(-1)}
+    /* 第二个换行点位于左侧：第11站继续向下进入第12站 */
+    .routeTurn.reverse .turnArrow{transform:scaleX(-1)}
+  `;
+  doc.head.appendChild(style);
+  doc.title='铁路大亨 · 动态路线预测器 v1.4.1';
+});
+</script>
+</body>
+</html>
