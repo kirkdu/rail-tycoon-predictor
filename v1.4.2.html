@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>铁路大亨 · 动态路线预测器 v1.4.2</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101114}iframe{width:100%;height:100%;border:0}</style>
+</head>
+<body>
+<iframe id="app" src="v1.4.html"></iframe>
+<script>
+const frame=document.getElementById('app');
+frame.addEventListener('load',()=>{
+  const w=frame.contentWindow;
+  // v1.4 原逻辑把“当前站看到的未来3站”误当成了“当前站+后两站”。
+  // v1.4.2 改为：第N站的提示约束第N+1、N+2、N+3站，并让该约束参与整条路线求解。
+  w.windowOK=function(h,seq){
+    if(!w.S.hints[h] || h+3>=15) return true;
+    const v=[seq[h+1],seq[h+2],seq[h+3]];
+    if(v.some(x=>!x)) return true;
+    const c={食铺:0,商行:0,酒庄:0};
+    v.forEach(x=>c[x]++);
+    if(w.S.hints[h]==='equal') return c.食铺===1&&c.商行===1&&c.酒庄===1;
+    const target=w.S.hints[h]==='foodMost'?'食铺':w.S.hints[h]==='tradeMost'?'商行':'酒庄';
+    return c[target]>Math.max(...w.TYPES.filter(x=>x!==target).map(x=>c[x]));
+  };
+  w.partialOK=function(h,seq){
+    if(!w.S.hints[h] || h+3>=15) return true;
+    const v=[seq[h+1],seq[h+2],seq[h+3]].filter(Boolean);
+    const c={食铺:0,商行:0,酒庄:0};
+    v.forEach(x=>c[x]++);
+    if(w.S.hints[h]==='equal') return Math.max(c.食铺,c.商行,c.酒庄)<=1;
+    const target=w.S.hints[h]==='foodMost'?'食铺':w.S.hints[h]==='tradeMost'?'商行':'酒庄';
+    return c[target]+(3-v.length)>Math.max(...w.TYPES.filter(x=>x!==target).map(x=>c[x]));
+  };
+  // 页面加载完成后刷新一次，确保旧页面状态按新约束重新计算。
+  const oldRender=w.render;
+  w.render=function(){ oldRender(); };
+  w.document.title='铁路大亨 · 动态路线预测器 v1.4.2';
+  const h=w.document.querySelector('h1'); if(h) h.textContent='铁路大亨 · 动态路线预测器 v1.4.2';
+});
+</script>
+</body>
+</html>
