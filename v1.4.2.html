@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>铁路大亨 · 动态路线预测器 v1.4.2</title>
 <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101114}iframe{width:100%;height:100%;border:0}</style>
 </head>
@@ -9,10 +10,12 @@
 <iframe id="app" src="v1.4.html"></iframe>
 <script>
 const frame=document.getElementById('app');
+
 frame.addEventListener('load',()=>{
   const w=frame.contentWindow;
-  // v1.4 原逻辑把“当前站看到的未来3站”误当成了“当前站+后两站”。
-  // v1.4.2 改为：第N站的提示约束第N+1、N+2、N+3站，并让该约束参与整条路线求解。
+
+  // v1.4.2：提示约束的是“当前站之后的3站”，而不是包含当前站。
+  // 同时改用记忆化搜索，避免点击“开始预测”时枚举大量完整路线导致页面卡住。
   w.windowOK=function(h,seq){
     if(!w.S.hints[h] || h+3>=15) return true;
     const v=[seq[h+1],seq[h+2],seq[h+3]];
@@ -23,20 +26,111 @@ frame.addEventListener('load',()=>{
     const target=w.S.hints[h]==='foodMost'?'食铺':w.S.hints[h]==='tradeMost'?'商行':'酒庄';
     return c[target]>Math.max(...w.TYPES.filter(x=>x!==target).map(x=>c[x]));
   };
-  w.partialOK=function(h,seq){
-    if(!w.S.hints[h] || h+3>=15) return true;
-    const v=[seq[h+1],seq[h+2],seq[h+3]].filter(Boolean);
-    const c={食铺:0,商行:0,酒庄:0};
-    v.forEach(x=>c[x]++);
-    if(w.S.hints[h]==='equal') return Math.max(c.食铺,c.商行,c.酒庄)<=1;
-    const target=w.S.hints[h]==='foodMost'?'食铺':w.S.hints[h]==='tradeMost'?'商行':'酒庄';
-    return c[target]+(3-v.length)>Math.max(...w.TYPES.filter(x=>x!==target).map(x=>c[x]));
+
+  w.solve=function(){
+    const seq=Array(15).fill(null);
+    w.S.arrived.forEach((x,i)=>seq[i]=x);
+
+    const rem={...w.S.totals};
+    w.S.arrived.forEach(x=>rem[x]--);
+
+    // 先确认已经完整形成的提示窗口没有冲突。
+    for(let h=0;h<=12;h++){
+      if(h+3<w.S.arrived.length && !w.windowOK(h,seq)){
+        return {cand:Array.from({length:15},()=>new Set()),solutions:0};
+      }
+    }
+
+    const cap=200001;
+    const memo=new Map();
+
+    function stateKey(p,r,l2,l1){
+      return p+'|'+r.食铺+','+r.商行+','+r.酒庄+'|'+(l2||'')+','+(l1||'');
+    }
+
+    function windowCompleteOK(h,a,b,c){
+      const hint=w.S.hints[h];
+      if(!hint || h+3>=15) return true;
+      const vals=[a,b,c];
+      if(vals.some(x=>!x)) return true;
+      const cnt={食铺:0,商行:0,酒庄:0};
+      vals.forEach(x=>cnt[x]++);
+      if(hint==='equal') return cnt.食铺===1&&cnt.商行===1&&cnt.酒庄===1;
+      const target=hint==='foodMost'?'食铺':hint==='tradeMost'?'商行':'酒庄';
+      return cnt[target]>Math.max(...w.TYPES.filter(x=>x!==target).map(x=>cnt[x]));
+    }
+
+    function ways(p,r,l2,l1){
+      if(p===15) return 1;
+      const k=stateKey(p,r,l2,l1);
+      if(memo.has(k)) return memo.get(k);
+
+      let total=0;
+      const choices=p<w.S.arrived.length?[w.S.arrived[p]]:w.TYPES;
+
+      for(const x of choices){
+        if(r[x]<=0) continue;
+        if(p>=3 && !windowCompleteOK(p-3,l2,l1,x)) continue;
+        r[x]--;
+        const n=ways(p+1,r,l1,x);
+        r[x]++;
+        total=Math.min(cap,total+n);
+        if(total>=cap) break;
+      }
+
+      memo.set(k,total);
+      return total;
+    }
+
+    const start=w.S.arrived.length;
+    const l2=start>=2?seq[start-2]:null;
+    const l1=start>=1?seq[start-1]:null;
+    const solutions=ways(start,{...rem},l2,l1);
+    const cand=Array.from({length:15},()=>new Set());
+
+    for(let i=0;i<start;i++) cand[i].add(w.S.arrived[i]);
+
+    const maxP=Math.min(14,start+2);
+
+    function collectAt(target){
+      const out=cand[target];
+      function walk(p,r,a,b){
+        if(p===target){
+          const choices=p<w.S.arrived.length?[w.S.arrived[p]]:w.TYPES;
+          for(const x of choices){
+            if(r[x]<=0) continue;
+            if(p>=3 && !windowCompleteOK(p-3,a,b,x)) continue;
+            r[x]--;
+            const n=ways(p+1,r,b,x);
+            r[x]++;
+            if(n>0) out.add(x);
+          }
+          return;
+        }
+
+        const choices=p<w.S.arrived.length?[w.S.arrived[p]]:w.TYPES;
+        for(const x of choices){
+          if(r[x]<=0) continue;
+          if(p>=3 && !windowCompleteOK(p-3,a,b,x)) continue;
+          r[x]--;
+          walk(p+1,r,b,x);
+          r[x]++;
+        }
+      }
+
+      walk(start,{...rem},l2,l1);
+    }
+
+    for(let p=start;p<=maxP;p++) collectAt(p);
+    return {cand,solutions};
   };
-  // 页面加载完成后刷新一次，确保旧页面状态按新约束重新计算。
+
   const oldRender=w.render;
-  w.render=function(){ oldRender(); };
+  w.render=function(){oldRender();};
+
   w.document.title='铁路大亨 · 动态路线预测器 v1.4.2';
-  const h=w.document.querySelector('h1'); if(h) h.textContent='铁路大亨 · 动态路线预测器 v1.4.2';
+  const h=w.document.querySelector('h1');
+  if(h) h.textContent='铁路大亨 · 动态路线预测器 v1.4.2';
 });
 </script>
 </body>
